@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+*.js.map
+
+# Arquivos JavaScript compilados (manter apenas TypeScript em src/)
+src/**/*.js
+src/**/*.js.map
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# AWS Credentials (NUNCA COMMITAR!)
+.aws/
+**/aws-credentials*
+**/credentials
+*.pem
+*.key
+
+# Terraform (ARQUIVOS SENSÍVEIS!)
+.terraform/
+terraform/.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+*.tfvars
+!terraform/variables.tf
+
+# Lambda Packages
+*.zip
+terraform/lambdas-src/
+.terraform/lambdas-src/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

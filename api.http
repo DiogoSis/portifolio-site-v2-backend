@@ -1,0 +1,210 @@
+### Portfolio API - Test Requests
+### Atualize @baseUrl após o deploy do Terraform
+@baseUrl = https://ofqpkinf8j.execute-api.us-east-1.amazonaws.com/
+
+###############################################################################
+# CERTIFICATES ENDPOINTS
+###############################################################################
+
+### Get All Certificates
+GET {{baseUrl}}/certificates
+Content-Type: application/json
+
+### Get Certificate by ID
+GET {{baseUrl}}/certificates/999
+Content-Type: application/json
+
+### Create New Certificate
+POST {{baseUrl}}/certificates
+Content-Type: application/json
+
+{
+  "id": 999,
+  "categoryCode": "Cloud",
+  "certificateUrl": "https://example.com/certificate.pdf",
+  "courseName": "AWS Certified Solutions Architect",
+  "finishedAt": "02/12/2026",
+  "imageUrl": "https://example.com/aws-logo.svg",
+  "startedAt": "01/10/2026"
+}
+
+### Update Certificate
+PUT {{baseUrl}}/certificates/999
+Content-Type: application/json
+
+{
+  "courseName": "AWS Certified Solutions Architect - Associate",
+  "categoryCode": "Cloud Computing"
+}
+
+###############################################################################
+# FORMATIONS ENDPOINTS
+###############################################################################
+
+### Get All Formations
+GET {{baseUrl}}/formations
+Content-Type: application/json
+
+### Get Formation by ID
+GET {{baseUrl}}/formations/3
+Content-Type: application/json
+
+### Create New Formation
+POST {{baseUrl}}/formations
+Content-Type: application/json
+
+{
+  "id": 999,
+  "name": "Formação Full Stack Developer",
+  "area": "Desenvolvimento Web",
+  "certificate": "https://example.com/formation-certificate.pdf",
+  "conclusion": "12/31/2025",
+  "materias": [
+    "Node.js Fundamentals",
+    "React Advanced Patterns",
+    "TypeScript Complete",
+    "AWS Serverless Architecture"
+  ]
+}
+
+### Update Formation
+PUT {{baseUrl}}/formations/999
+Content-Type: application/json
+
+{
+  "name": "Formação Full Stack Developer Pro",
+  "materias": [
+    "Node.js Fundamentals",
+    "React Advanced Patterns",
+    "TypeScript Complete",
+    "AWS Serverless Architecture",
+    "Microservices Design"
+  ]
+}
+
+###############################################################################
+# PROJECTS ENDPOINTS
+###############################################################################
+
+### Get All Projects
+GET {{baseUrl}}/projects
+Content-Type: application/json
+
+### Get Project by ID
+GET {{baseUrl}}/projects/0
+Content-Type: application/json
+
+### Create New Project
+POST {{baseUrl}}/projects
+Content-Type: application/json
+
+{
+  "id": 999,
+  "projectName": "E-commerce Platform",
+  "description": "Plataforma de e-commerce completa com microserviços, usando Node.js, React, e AWS services",
+  "categoryLocal": "Freelance",
+  "typePerformance": "Full Stack Developer & DevOps",
+  "imagesUrl": [
+    "https://example.com/project-screenshot-1.png",
+    "https://example.com/project-screenshot-2.png",
+    "https://example.com/project-architecture.png"
+  ],
+  "technologiesUsed": [
+    "TypeScript",
+    "Node.js",
+    "React",
+    "AWS Lambda",
+    "DynamoDB",
+    "API Gateway",
+    "CloudFront"
+  ]
+}
+
+### Update Project
+PUT {{baseUrl}}/projects/999
+Content-Type: application/json
+
+{
+  "description": "Plataforma de e-commerce completa com microserviços, usando Node.js, React, AWS services e CI/CD com GitHub Actions",
+  "technologiesUsed": [
+    "TypeScript",
+    "Node.js",
+    "React",
+    "AWS Lambda",
+    "DynamoDB",
+    "API Gateway",
+    "CloudFront",
+    "GitHub Actions",
+    "Terraform"
+  ]
+}
+
+###############################################################################
+# KNOWLEDGE ENDPOINTS
+###############################################################################
+
+### Get All Knowledge
+GET {{baseUrl}}/knowledge
+Content-Type: application/json
+
+### Get Knowledge by ID
+GET {{baseUrl}}/knowledge/7
+Content-Type: application/json
+
+### Create New Knowledge
+POST {{baseUrl}}/knowledge
+Content-Type: application/json
+
+{
+  "id": 999,
+  "name": "Docker",
+  "icon": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg",
+  "type": "containerização",
+  "rating": 5
+}
+
+### Update Knowledge
+PUT {{baseUrl}}/knowledge/999
+Content-Type: application/json
+
+{
+  "rating": 4,
+  "type": "containerização e orquestração"
+}
+
+###############################################################################
+# ERROR TESTING
+###############################################################################
+
+### Test 404 - Non-existent ID
+GET {{baseUrl}}/certificates/99999
+Content-Type: application/json
+
+### Test 400 - Invalid ID Format
+GET {{baseUrl}}/certificates/abc
+Content-Type: application/json
+
+### Test 400 - Missing Body
+POST {{baseUrl}}/certificates
+Content-Type: application/json
+
+### Test 400 - Invalid Schema (missing required fields)
+POST {{baseUrl}}/knowledge
+Content-Type: application/json
+
+{
+  "id": 888,
+  "name": "Kubernetes"
+}
+
+### Test 400 - Invalid Rating (out of range)
+POST {{baseUrl}}/knowledge
+Content-Type: application/json
+
+{
+  "id": 887,
+  "name": "Test",
+  "icon": "https://example.com/icon.svg",
+  "type": "test",
+  "rating": 10
+}

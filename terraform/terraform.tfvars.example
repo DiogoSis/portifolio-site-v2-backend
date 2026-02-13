@@ -1,0 +1,24 @@
+# Terraform Variables Configuration
+# Copie este arquivo para terraform.tfvars e ajuste os valores conforme necessário
+
+# Região AWS onde os recursos serão criados
+aws_region = "us-east-1"
+
+# Ambiente (dev, staging, prod)
+environment = "dev"
+
+# Nome base para recursos AWS
+project_name = "portfolio-api"
+
+# Nomes das tabelas DynamoDB existentes
+certificates_table_name = "certificates"
+formations_table_name   = "formations"
+projects_table_name     = "projects"
+knowledge_table_name    = "knowledge"
+
+# Configurações de Lambda (otimizadas para custo)
+lambda_memory_size = 256  # MB - Ideal para Node.js
+lambda_timeout     = 10   # segundos - Suficiente para DynamoDB
+
+# Retenção de logs CloudWatch
+log_retention_days = 7    # dias - Reduz custos de storage
