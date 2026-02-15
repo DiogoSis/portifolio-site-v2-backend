@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { mockCertificate, resetMocks } from '../../../__mocks__/dynamodb';
+import { 
+  createGetEvent, 
+  createGetByIdEvent, 
+  createPostEvent, 
+  createPutEvent,
+  createDeleteEvent 
+} from '../../../__tests__/eventHelpers.js';
 
 // Mock environment variables
 process.env.CERTIFICATES_TABLE = 'certifications';
@@ -11,10 +18,7 @@ jest.unstable_mockModule('../../../lib/dynamodb.js', () => ({
 }));
 
 const { scanTable, getItem, putItem } = await import('../../../lib/dynamodb.js');
-const { handler: getAllHandler } = await import('../getAll.js');
-const { handler: getByIdHandler } = await import('../getById.js');
-const { handler: createHandler } = await import('../create.js');
-const { handler: updateHandler } = await import('../update.js');
+const { handler } = await import('../../certificates.js');
 
 describe('Certificates Handlers', () => {
   beforeEach(() => {
@@ -22,13 +26,94 @@ describe('Certificates Handlers', () => {
     jest.clearAllMocks();
   });
 
+  describe('HTTP Method Routing', () => {
+    it('deve rotear GET sem ID para getAll', async () => {
+      const mockItems = [mockCertificate];
+      (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue(mockItems);
+
+      const event = createGetEvent();
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      expect(scanTable).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear GET com ID para getById', async () => {
+      (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockCertificate);
+
+      const event = createGetByIdEvent('1');
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      expect(getItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear POST para create', async () => {
+      (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockCertificate);
+
+      const event = createPostEvent(mockCertificate);
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(201);
+      }
+      expect(putItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear PUT com ID para update', async () => {
+      (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockCertificate);
+      (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockCertificate);
+
+      const event = createPutEvent('1', mockCertificate);
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      expect(putItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve retornar 405 para método DELETE não suportado', async () => {
+      const event = createDeleteEvent('1');
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(405);
+        
+        if ('body' in result && typeof result.body === 'string') {
+          const body = JSON.parse(result.body);
+          expect(body.error).toContain('Method not allowed');
+        }
+      }
+    });
+  });
+
   describe('GET All Certificates', () => {
     it('deve retornar todos os certificados', async () => {
       const mockItems = [mockCertificate];
       (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue(mockItems);
 
-      const event = {} as any;
-      const result = await getAllHandler(event, {} as any, {} as any);
+      const event = createGetEvent();
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -47,8 +132,8 @@ describe('Certificates Handlers', () => {
     it('deve retornar array vazio quando não há certificados', async () => {
       (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue([]);
 
-      const event = {} as any;
-      const result = await getAllHandler(event, {} as any, {} as any);
+      const event = createGetEvent();
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -69,8 +154,8 @@ describe('Certificates Handlers', () => {
     it('deve retornar certificado específico', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockCertificate);
 
-      const event = { pathParameters: { id: '1' } } as any;
-      const result = await getByIdHandler(event, {} as any, {} as any);
+      const event = createGetByIdEvent('1');
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -88,8 +173,8 @@ describe('Certificates Handlers', () => {
     it('deve retornar 404 quando certificado não encontrado', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(undefined);
 
-      const event = { pathParameters: { id: '999' } } as any;
-      const result = await getByIdHandler(event, {} as any, {} as any);
+      const event = createGetByIdEvent('999');
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -100,14 +185,20 @@ describe('Certificates Handlers', () => {
     });
 
     it('deve retornar 400 quando ID não fornecido', async () => {
-      const event = { pathParameters: {} } as any;
-      const result = await getByIdHandler(event, {} as any, {} as any);
+      // Este cenário na verdade não retorna 400 no handler consolidado
+      // Quando não há ID, o handler roteia para getAll (200)
+      // Este teste deve ser removido ou ajustado para o novo comportamento
+      // Por ora, vou ajustar para testar o comportamento correto
+      (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue([]);
+      
+      const event = createGetEvent(); // GET sem ID vai para getAll
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
       
       if (result && typeof result === 'object' && 'statusCode' in result) {
-        expect(result.statusCode).toBe(400);
+        expect(result.statusCode).toBe(200); // getAll retorna 200
       }
     });
   });
@@ -116,10 +207,8 @@ describe('Certificates Handlers', () => {
     it('deve criar certificado com dados válidos', async () => {
       (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockCertificate);
 
-      const event = {
-        body: JSON.stringify(mockCertificate),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent(mockCertificate);
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -135,13 +224,11 @@ describe('Certificates Handlers', () => {
     });
 
     it('deve validar URL do certificado', async () => {
-      const event = {
-        body: JSON.stringify({
-          ...mockCertificate,
-          certificateUrl: 'invalid-url',
-        }),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent({
+        ...mockCertificate,
+        certificateUrl: 'invalid-url',
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -157,13 +244,11 @@ describe('Certificates Handlers', () => {
     });
 
     it('deve validar URL da imagem', async () => {
-      const event = {
-        body: JSON.stringify({
-          ...mockCertificate,
-          imageUrl: 'not-a-url',
-        }),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent({
+        ...mockCertificate,
+        imageUrl: 'not-a-url',
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -174,8 +259,9 @@ describe('Certificates Handlers', () => {
     });
 
     it('deve rejeitar body vazio', async () => {
-      const event = {} as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent(null as any);
+      event.body = undefined;
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -192,11 +278,8 @@ describe('Certificates Handlers', () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockCertificate);
       (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(updatedCert);
 
-      const event = {
-        pathParameters: { id: '1' },
-        body: JSON.stringify(updatedCert),
-      } as any;
-      const result = await updateHandler(event, {} as any, {} as any);
+      const event = createPutEvent('1', updatedCert);
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -212,11 +295,8 @@ describe('Certificates Handlers', () => {
     });
 
     it('deve retornar 400 quando ID não fornecido', async () => {
-      const event = {
-        pathParameters: {},
-        body: JSON.stringify(mockCertificate),
-      } as any;
-      const result = await updateHandler(event, {} as any, {} as any);
+      const event = createPutEvent(undefined as any, mockCertificate);
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -229,14 +309,11 @@ describe('Certificates Handlers', () => {
     it('deve validar dados ao atualizar', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockCertificate);
       
-      const event = {
-        pathParameters: { id: '1' },
-        body: JSON.stringify({
-          ...mockCertificate,
-          certificateUrl: 'invalid',
-        }),
-      } as any;
-      const result = await updateHandler(event, {} as any, {} as any);
+      const event = createPutEvent('1', {
+        ...mockCertificate,
+        certificateUrl: 'invalid',
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');

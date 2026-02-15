@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { mockProject, resetMocks } from '../../../__mocks__/dynamodb';
+import { 
+  createGetEvent, 
+  createGetByIdEvent, 
+  createPostEvent, 
+  createPutEvent,
+  createDeleteEvent 
+} from '../../../__tests__/eventHelpers.js';
 
 // Mock environment variables
 process.env.PROJECTS_TABLE = 'projects';
@@ -11,10 +18,7 @@ jest.unstable_mockModule('../../../lib/dynamodb.js', () => ({
 }));
 
 const { scanTable, getItem, putItem } = await import('../../../lib/dynamodb.js');
-const { handler: getAllHandler } = await import('../getAll.js');
-const { handler: getByIdHandler } = await import('../getById.js');
-const { handler: createHandler } = await import('../create.js');
-const { handler: updateHandler } = await import('../update.js');
+const { handler } = await import('../../projects.js');
 
 describe('Projects Handlers', () => {
   beforeEach(() => {
@@ -22,13 +26,98 @@ describe('Projects Handlers', () => {
     jest.clearAllMocks();
   });
 
+  describe('HTTP Method Routing', () => {
+    it('deve rotear GET sem ID para getAll', async () => {
+      const mockItems = [mockProject];
+      (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue(mockItems);
+
+      const event = createGetEvent();
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      
+      expect(scanTable).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear GET com ID para getById', async () => {
+      (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockProject);
+
+      const event = createGetByIdEvent('1');
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      
+      expect(getItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear POST para create', async () => {
+      (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockProject);
+
+      const event = createPostEvent(mockProject);
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(201);
+      }
+      
+      expect(putItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve rotear PUT com ID para update', async () => {
+      (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockProject);
+      (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockProject);
+
+      const event = createPutEvent('1', mockProject);
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(200);
+      }
+      
+      expect(putItem).toHaveBeenCalledTimes(1);
+    });
+
+    it('deve retornar 405 para método DELETE não suportado', async () => {
+      const event = createDeleteEvent('1');
+      const result = await handler(event, {} as any, {} as any);
+
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('object');
+      
+      if (result && typeof result === 'object' && 'statusCode' in result) {
+        expect(result.statusCode).toBe(405);
+        
+        if ('body' in result && typeof result.body === 'string') {
+          const body = JSON.parse(result.body);
+          expect(body.error).toContain('Method not allowed');
+        }
+      }
+    });
+  });
+
   describe('GET All Projects', () => {
     it('deve retornar todos os projetos', async () => {
       const mockItems = [mockProject];
       (scanTable as jest.MockedFunction<typeof scanTable>).mockResolvedValue(mockItems);
 
-      const event = {} as any;
-      const result = await getAllHandler(event, {} as any, {} as any);
+      const event = createGetEvent();
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -49,8 +138,8 @@ describe('Projects Handlers', () => {
     it('deve retornar projeto específico', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockProject);
 
-      const event = { pathParameters: { id: '1' } } as any;
-      const result = await getByIdHandler(event, {} as any, {} as any);
+      const event = createGetByIdEvent('1');
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -68,8 +157,8 @@ describe('Projects Handlers', () => {
     it('deve retornar 404 quando projeto não encontrado', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(undefined);
 
-      const event = { pathParameters: { id: '999' } } as any;
-      const result = await getByIdHandler(event, {} as any, {} as any);
+      const event = createGetByIdEvent('999');
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -84,10 +173,8 @@ describe('Projects Handlers', () => {
     it('deve criar projeto com arrays de imagens e tecnologias', async () => {
       (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(mockProject);
 
-      const event = {
-        body: JSON.stringify(mockProject),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent(mockProject);
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -104,13 +191,11 @@ describe('Projects Handlers', () => {
     });
 
     it('deve validar URLs nas imagens', async () => {
-      const event = {
-        body: JSON.stringify({
-          ...mockProject,
-          imagesUrl: ['invalid-url', 'another-invalid'],
-        }),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent({
+        ...mockProject,
+        imagesUrl: ['invalid-url', 'another-invalid'],
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -126,13 +211,11 @@ describe('Projects Handlers', () => {
     });
 
     it('deve validar que technologiesUsed é array de strings', async () => {
-      const event = {
-        body: JSON.stringify({
-          ...mockProject,
-          technologiesUsed: 'not-an-array',
-        }),
-      } as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent({
+        ...mockProject,
+        technologiesUsed: 'not-an-array',
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -148,8 +231,9 @@ describe('Projects Handlers', () => {
     });
 
     it('deve rejeitar body vazio', async () => {
-      const event = {} as any;
-      const result = await createHandler(event, {} as any, {} as any);
+      const event = createPostEvent(null as any);
+      event.body = undefined;
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -166,11 +250,8 @@ describe('Projects Handlers', () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockProject);
       (putItem as jest.MockedFunction<typeof putItem>).mockResolvedValue(updatedProject);
 
-      const event = {
-        pathParameters: { id: '1' },
-        body: JSON.stringify(updatedProject),
-      } as any;
-      const result = await updateHandler(event, {} as any, {} as any);
+      const event = createPutEvent('1', updatedProject);
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
@@ -188,14 +269,11 @@ describe('Projects Handlers', () => {
     it('deve validar dados ao atualizar', async () => {
       (getItem as jest.MockedFunction<typeof getItem>).mockResolvedValue(mockProject);
       
-      const event = {
-        pathParameters: { id: '1' },
-        body: JSON.stringify({
-          ...mockProject,
-          imagesUrl: ['invalid'],
-        }),
-      } as any;
-      const result = await updateHandler(event, {} as any, {} as any);
+      const event = createPutEvent('1', {
+        ...mockProject,
+        imagesUrl: ['invalid'],
+      });
+      const result = await handler(event, {} as any, {} as any);
 
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');

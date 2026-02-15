@@ -1,23 +1,32 @@
+# Consolidated Lambda Handlers
+locals {
+  handlers = {
+    "certificates" = {
+      source_file = "${path.module}/../dist/handlers/certificates.js"
+      table_env   = "CERTIFICATES_TABLE"
+      table_name  = var.certificates_table_name
+    }
+    "formations" = {
+      source_file = "${path.module}/../dist/handlers/formations.js"
+      table_env   = "FORMATIONS_TABLE"
+      table_name  = var.formations_table_name
+    }
+    "projects" = {
+      source_file = "${path.module}/../dist/handlers/projects.js"
+      table_env   = "PROJECTS_TABLE"
+      table_name  = var.projects_table_name
+    }
+    "knowledge" = {
+      source_file = "${path.module}/../dist/handlers/knowledge.js"
+      table_env   = "KNOWLEDGE_TABLE"
+      table_name  = var.knowledge_table_name
+    }
+  }
+}
+
 # Archive Lambda handlers
 data "archive_file" "lambda_zip" {
-  for_each = toset([
-    "certificates-getAll",
-    "certificates-getById",
-    "certificates-create",
-    "certificates-update",
-    "formations-getAll",
-    "formations-getById",
-    "formations-create",
-    "formations-update",
-    "projects-getAll",
-    "projects-getById",
-    "projects-create",
-    "projects-update",
-    "knowledge-getAll",
-    "knowledge-getById",
-    "knowledge-create",
-    "knowledge-update"
-  ])
+  for_each = local.handlers
 
   type        = "zip"
   source_dir  = "${path.module}/.terraform/lambdas-src/${each.key}"
@@ -26,27 +35,10 @@ data "archive_file" "lambda_zip" {
 
 # Lambda Functions
 resource "aws_lambda_function" "handlers" {
-  for_each = toset([
-    "certificates-getAll",
-    "certificates-getById",
-    "certificates-create",
-    "certificates-update",
-    "formations-getAll",
-    "formations-getById",
-    "formations-create",
-    "formations-update",
-    "projects-getAll",
-    "projects-getById",
-    "projects-create",
-    "projects-update",
-    "knowledge-getAll",
-    "knowledge-getById",
-    "knowledge-create",
-    "knowledge-update"
-  ])
+  for_each = local.handlers
 
   filename         = data.archive_file.lambda_zip[each.key].output_path
-  function_name    = "${var.project_name}-${each.key}"
+  function_name    = "${var.project_name}-${each.key}-handler"
   role            = aws_iam_role.lambda_execution.arn
   handler         = "index.handler"
   source_code_hash = data.archive_file.lambda_zip[each.key].output_base64sha256
@@ -57,11 +49,11 @@ resource "aws_lambda_function" "handlers" {
 
   environment {
     variables = {
-      NODE_ENV           = var.environment
-      CERTIFICATES_TABLE = var.certificates_table_name
-      FORMATIONS_TABLE   = var.formations_table_name
-      PROJECTS_TABLE     = var.projects_table_name
-      KNOWLEDGE_TABLE    = var.knowledge_table_name
+      NODE_ENV                = var.environment
+      CERTIFICATES_TABLE      = var.certificates_table_name
+      FORMATIONS_TABLE        = var.formations_table_name
+      PROJECTS_TABLE          = var.projects_table_name
+      KNOWLEDGE_TABLE         = var.knowledge_table_name
     }
   }
 }
