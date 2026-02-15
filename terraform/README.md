@@ -38,10 +38,10 @@ terraform plan
 
 Check the resources that will be created:
 - IAM Role and Policies
-- 16 Lambda Functions (4 per resource)
+- 4 Consolidated Lambda Functions (1 per resource with HTTP routing)
 - API Gateway HTTP API
 - CloudWatch Log Groups
-- API Routes and Integrations
+- 16 API Routes pointing to 4 Integrations
 
 ### 5. Deploy Infrastructure
 
@@ -73,8 +73,28 @@ Copy the `api_endpoint` value and update the `@baseUrl` variable in the root `ap
 
 Use VS Code REST Client extension to test the endpoints in `api.http`.
 
+## Architecture
+
+### Consolidated Lambda Pattern
+
+Each Lambda function handles multiple routes for its resource:
+
+- **certificates-handler**: Routes all GET/POST/PUT requests for `/certificates`
+- **formations-handler**: Routes all GET/POST/PUT requests for `/formations`
+- **projects-handler**: Routes all GET/POST/PUT requests for `/projects`
+- **knowledge-handler**: Routes all GET/POST/PUT requests for `/knowledge`
+
+Routing is performed internally based on `event.requestContext.http.method` and path parameters.
+
+**Benefits:**
+- 75% reduction in Lambda functions (16 → 4)
+- Simplified deployment and maintenance
+- Reduced API Gateway integrations
+- Lower cold start frequency per resource
+
 ## Cost Optimization Features
 
+✅ **Consolidated Handlers** - 75% fewer Lambda functions  
 ✅ **Lambda ARM64** - 20% cost reduction using Graviton2  
 ✅ **HTTP API** - 71% cheaper than REST API  
 ✅ **DynamoDB On-Demand** - No idle costs  
@@ -86,12 +106,14 @@ Use VS Code REST Client extension to test the endpoints in `api.http`.
 
 Assuming 100,000 requests/month:
 
-- **Lambda**: ~$0.20 (ARM64 pricing)
+- **Lambda**: ~$0.15 (ARM64 pricing, 4 consolidated functions)
 - **API Gateway HTTP**: ~$0.10
 - **DynamoDB**: ~$1.25 (read/write on-demand)
-- **CloudWatch Logs**: ~$0.50
+- **CloudWatch Logs**: ~$0.35 (4 log groups instead of 16)
 
-**Total: ~$2.05/month** for 100K requests
+**Total: ~$1.85/month** for 100K requests
+
+💡 **10% cost reduction** compared to previous 16-Lambda architecture
 
 ## Cleanup
 

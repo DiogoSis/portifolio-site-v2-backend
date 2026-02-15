@@ -9,23 +9,24 @@ Todos os componentes foram criados com sucesso:
 ```
 portifolio-v2-backend/
 ├── src/
-│   ├── handlers/          # 16 Lambda handlers (4 por recurso)
-│   │   ├── certificates/  # GET All, GET ID, POST, PUT
-│   │   ├── formations/    # GET All, GET ID, POST, PUT
-│   │   ├── projects/      # GET All, GET ID, POST, PUT
-│   │   └── knowledge/     # GET All, GET ID, POST, PUT
-│   └── lib/
-│       ├── dynamodb.ts    # Cliente DynamoDB singleton
-│       ├── schemas.ts     # Validações Zod
-│       └── response.ts    # Helpers de resposta HTTP
-├── dist/                  # ✅ Handlers compilados (16 arquivos)
+│   ├── handlers/          # 4 Lambda consolidados (1 por recurso)
+│   │   ├── certificates.ts  # Gerencia todas as rotas /certificates
+│   │   ├── formations.ts    # Gerencia todas as rotas /formations
+│   │   ├── projects.ts      # Gerencia todas as rotas /projects
+│   │   └── knowledge.ts     # Gerencia todas as rotas /knowledge
+│   ├── lib/
+│   │   ├── dynamodb.ts    # Cliente DynamoDB singleton
+│   │   ├── schemas.ts     # Validações Zod
+│   │   └── response.ts    # Helpers de resposta HTTP
+│   └── __tests__/         # 71 testes (Jest + ts-jest)
+├── dist/                  # ✅ Handlers compilados (4 arquivos ~62KB)
 ├── terraform/
 │   ├── main.tf           # Provider AWS
 │   ├── variables.tf      # Variáveis configuráveis
 │   ├── data.tf           # Data sources DynamoDB
 │   ├── iam.tf            # Roles e Policies
-│   ├── lambda.tf         # 16 Lambda Functions
-│   ├── api-gateway.tf    # HTTP API + 16 rotas
+│   ├── lambda.tf         # 4 Lambda Functions consolidadas
+│   ├── api-gateway.tf    # HTTP API + 16 rotas → 4 integrações
 │   └── outputs.tf        # URL da API
 ├── api.http              # 20+ requisições de teste
 ├── package.json          # ✅ Dependências instaladas
@@ -41,11 +42,13 @@ portifolio-v2-backend/
 - ✅ **knowledge** - Stack tecnológico (rating 1-5)
 
 ### 16 Endpoints REST API
-Cada recurso possui:
+Cada recurso possui 4 operações gerenciadas por 1 Lambda consolidada:
 - `GET /{resource}` - Listar todos
 - `GET /{resource}/{id}` - Obter por ID
 - `POST /{resource}` - Criar novo
 - `PUT /{resource}/{id}` - Atualizar existente
+
+**Roteamento**: Cada Lambda usa switch/case baseado em `event.requestContext.http.method`
 
 ### Validações Implementadas
 - ✅ Schemas Zod para todos os recursos
@@ -76,11 +79,12 @@ terraform apply
 **Recursos que serão criados:**
 - 1 IAM Role (Lambda Execution)
 - 2 IAM Policies (DynamoDB + CloudWatch)
-- 16 Lambda Functions (ARM64, 256MB, Node.js 20.x)
+- 4 Lambda Functions consolidadas (ARM64, 256MB, Node.js 20.x)
 - 1 API Gateway HTTP API
-- 16 Rotas REST
-- 17 CloudWatch Log Groups
-- 16 Lambda Permissions
+- 16 Rotas REST (apontam para 4 integrações)
+- 4 API Gateway Integrations
+- 4 CloudWatch Log Groups
+- 4 Lambda Permissions
 
 ### 2️⃣ Obter URL da API
 
@@ -118,14 +122,16 @@ Use a extensão **REST Client** do VS Code:
 
 | Recurso | Otimização | Economia |
 |---------|-----------|----------|
+| **Lambda** | **Handlers consolidados** | **-75% funções** |
 | Lambda | ARM64 (Graviton2) | -20% |
 | API Gateway | HTTP API vs REST | -71% |
 | Lambda | 256MB RAM | Ideal Node.js |
 | Lambda | 10s timeout | Suficiente DynamoDB |
 | CloudWatch | 7 dias retenção | Reduz storage |
+| CloudWatch | 4 vs 16 Log Groups | -75% custos logs |
 | DynamoDB | On-Demand billing | Sem custos idle |
 
-**Estimativa para 100K requests/mês: ~$2/mês**
+**Estimativa para 100K requests/mês: ~$1.85/mês** (10% redução vs arquitetura anterior)
 
 ## 🔧 Comandos Úteis
 
@@ -137,7 +143,13 @@ npm install
 npm run build
 
 # Ver logs de Lambda específica
-aws logs tail /aws/lambda/portfolio-api-certificates-getAll --follow
+aws logs tail /aws/lambda/portfolio-api-certificates-handler --follow
+
+# Testar todos os endpoints
+npm test
+
+# Ver cobertura de testes
+npm test -- --coverage
 
 # Ver status do Terraform
 cd terraform && terraform show
